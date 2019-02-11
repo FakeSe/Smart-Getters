@@ -35,6 +35,10 @@ then based ont the entity type we call another method for that model, for exampl
   GetAppropriateAgencies(ApplicationUser connectedUser)
 And you can impliment as many methods as you want.... now you have all your data access logic in one place that you can call everywhere and change it whenever you want in one place.
 
+Now let's suppose that the Simple admin can see all the data in the project but can Edit/Delete only the data that he created !
+
+Easy, we just have to return a list of AccessData which contain the data he can access to (a list of Ids) and boolean variables which indicate if he can Edit/Delete that data Id and in the GetAppropriate(ModelName)() we check whenever he is the creator of that line or not. Simple ? yes yes yes, see the example in order to understand more.
+
 See the file SmartGettersService for a full code example.
 
 If you need any help or suggestions please contact me via : mabroukifakhri@gmail.com
