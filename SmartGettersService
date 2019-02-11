@@ -1,0 +1,141 @@
+  public class SmartGettersService
+    {
+    
+        IGlobalRepository _global; (this is another lazy thing, you can donwload or check it in the repository "GlobalRepository")
+        ApplicationDbContext _dbContext;
+        private readonly Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> _userManager;
+        List<IdentityRoleClaim<string>> claims;
+        public SmartGettersService(IGlobalRepository global, ApplicationDbContext dbContext, Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> userManager)
+        {
+            _global = global;
+            _dbContext = dbContext;
+            _userManager = userManager;
+
+        }
+
+        public AccessData GetAppropriateData<T>(string userId) where T : BaseEntity
+        {
+          //Let's get the connected user
+            var user = _global.Get<ApplicationUser>(u => u.Id == userId, u => u.UserType, u => u.Claims).First();
+          //let's identify the connected user's role
+            var roleIds = _dbContext.UserRoles.Where(u => u.UserId == user.Id).Select(u => u.RoleId);
+          //now we get his claims to know whenever he can Edit/Delete data
+            claims = _dbContext.RoleClaims.Where(r => roleIds.Contains(r.RoleId)).ToList();
+          //Now we create a list of AccessData that will return for us a list of Ids and for every Id will tell us if the connected user
+          //can edit/delete that row with that ID
+            var allowedData = new AccessData();
+          
+          //Now, based on the entity Type we will call the appropriate method that will return for us a list of alloed data 
+          //then in your controler you have just to add a condition : .where(x => allowedData.Ids.contain(x.id))....
+            if (typeof(T) == typeof(Product))
+            {
+                allowedData = (GetAppropriateProducts(user));
+            }
+
+            else if (typeof(T) == typeof(Client))
+            {
+                allowedData = (GetAppropriateClients(user));
+            }
+
+            else if (typeof(T) == typeof(Program))
+            {
+                allowedData = (GetAppropriatePrograms(user));
+            }
+            else if (typeof(T) == typeof(Agency))
+            {
+                allowedData = (GetAppropriateAgencies(user));
+            }
+          //add as much "if" as you want (well this is ugly but i didn't find another way to do that for now, i'll update that as soon
+          //as possible)
+            return allowedData;
+
+        }
+
+        private AccessData GetAppropriateAgencies(ApplicationUser connectedUser)
+        {
+        //The connected user's role allow him to edit agencies?
+            var canEdit = claims.Any(c => c.ClaimValue.Equals(GlobalClaimsName.EditAgencies));
+            
+        //The connected user's role allow him to Delete agencies ?
+         var canDelete = claims.Any(c => c.ClaimValue.Equals(GlobalClaimsName.DeleteAgencies));
+         
+            var returnSet = new List<AllowedEntity>();
+            
+            //The connected user is a super admin ? in that case return  everything and can do anything :p
+            if (connectedUser.UserType.Code.Equals("SuperAdmin"))
+            {
+                returnSet = _dbContext.Agencies.Select(b => new AllowedEntity
+                {
+                    EntityId = b.AgencyId,
+                    CanEdit = true,
+                    canDelete = true
+                }).ToList();
+            }
+            //The connected user is a simple admin? he can edit/Delete only the agency that he own !
+            else if (connectedUser.UserType.Code.Equals("SimpleAdmin"))
+            {
+            //Here I supposed that he can only have one agency and since it's his agency, he can edit/delete it
+                returnSet.Add(new AllowedEntity
+                {
+                    CanEdit = true,
+                    canDelete = true,
+                    EntityId = connectedUser.AgencyId
+                });
+                returnSet.AddRange(_dbContext.Agencies
+                    .Where(b => some_other_agencies_that_he_can_see_but_not_delete/edit)
+                    .Select(b => new AllowedEntity
+                    {
+                        EntityId = b.AgencyId,
+                        CanEdit = false,
+                        CanDelete = false
+                    }).ToList());
+            }
+            //The user is a Commercial? => readonly
+            else {
+            returnSet.AddRange(_dbContext.Agencies
+                    .Where(a => agencies_created_by_his_admin)
+                    .select(d => new AllowedEntity
+                    {
+                      EntityId = d.AgencyId,
+                      CanEdit = false,
+                      CanDelete = False
+                    }).ToList());
+             }
+           return new AccessData{AccessDetails = returnSet, Ids = returnSet.Select(r => r.EntityId).ToList()};
+        }
+
+      //Now do the same logic for every model
+        private AccessData GetAppropriateClients(ApplicationUser connectedUser)
+        {
+          //Impliment your logic for Clients
+        }
+
+        private AccessData GetAppropriateProducts(ApplicationUser connectedUser)
+        {
+          //Impliment your logic for Products
+        }
+
+
+        private AccessData GetAppropriatePrograms(ApplicationUser connectedUser)
+        {
+          //Impliment your logic for Programs
+        }
+
+      
+
+
+    }
+
+    public class AllowedEntity
+    {
+        public int EntityId { get; set; }
+        public bool CanEdit { get; set; }
+        public bool CanDelete {get; set;}
+    }
+
+    public class AccessData
+    {
+      //Added the Ids here, in case I don't need to know if the user can Edit/Delete Them (just lazy thing)
+        public List<int> Ids { get; set; } = new List<int>();
+        public List<AllowedEntity> AccessDetails { get; set; } = new List<AllowedEntity>();
+    }
