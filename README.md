@@ -1,0 +1,2 @@
+# Smart-Getters
+Data Access controle is one of the most complicated problems in big projects, we can easy controle the access over the modules, methods and API's but to controle the data returned to the user we must impliment a logic depending on the user, his role and many other criteria... Since that I hate impliment the same logic in every method I created this to impliment everything in one service and call one method that will give me the appropriate data based on the appropriate criteria.
